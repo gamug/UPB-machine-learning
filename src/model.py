@@ -12,19 +12,10 @@ def get_model_inputs(lat: float, lng: float) -> str:
     gdf = gpd.sjoin(gdf, hidrogeology, how="left", predicate="within")
     return [gdf.geometry.iloc[0].x, gdf.geometry.iloc[0].y, gdf.class_hidr.iloc[0]]
 
-def apply_model(model: str, lat:float, lon: float) -> str:
+def apply_model(pipeline, le, lat:float, lon: float) -> str:
     X = get_model_inputs(lat, lon)
     cats = pd.DataFrame({'class_hidr': [X[-1]]}).dropna()
     if not len(cats):
         return 'El punto seleccionado no pertenece al departamento de la Guajira'
-    else:
-        with open(os.path.join('models', 'pickles', f'{model}.pkl'), mode='rb') as f:
-            le, encoder, pipeline = pickle.loads(f.read())
-        
-        coded = encoder.transform(cats)
-        coded = pd.DataFrame(data=coded, columns=encoder.get_feature_names_out(['class_hidr']).tolist())
-        X = X[:-1]
-        X.extend(coded)
-        X = pd.DataFrame({'X': [X[0]], 'Y': [X[1]]})
-        X = X.join(coded)
-        return le.inverse_transform(pipeline.predict(X))[0]
+    X = pd.DataFrame({col: [val] for col, val in zip(['X', 'Y', 'class_hidr'], X)})
+    return le.inverse_transform(pipeline.predict(X))[0]
